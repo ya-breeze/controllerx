@@ -248,6 +248,20 @@ class E1743CoverController(CoverController):
         }
 
 
+class E1743CoverTiltController(CoverController):
+    # Different states reported from the controller:
+    # on, off
+
+    def get_z2m_actions_mapping(self) -> DefaultActionsMapping:
+        return {
+            "on": Cover.SET_TILT_UP,
+            "off": Cover.SET_TILT_DOWN,
+            "brightness_move_up": Cover.SET_TILT_OPEN,
+            "brightness_move_down": Cover.SET_TILT_CLOSE,
+            "brightness_stop": Cover.STOP,
+        }
+
+
 class ICTCG1Controller(LightController):
     # Different states reported from the controller:
     # rotate_left, rotate_left_quick
@@ -573,4 +587,19 @@ class W2049LightController(LightController):
             "hold_3328_0": Light.HOLD_COLOR_UP,
             "stop": Light.RELEASE,
             "release": Light.RELEASE,
+        }
+
+
+class W2049CoverTiltController(CoverController):
+    def get_z2m_actions_mapping(self) -> DefaultActionsMapping:
+        return {
+            "on": Cover.TOGGLE_OPEN,
+            "off": Cover.TOGGLE_CLOSE,
+            "brightness_move_up": Cover.OPEN,
+            "brightness_move_down": Cover.CLOSE,
+            "brightness_stop": Cover.STOP,
+            "arrow_left_click": Cover.SET_TILT_DOWN,
+            "arrow_right_click": Cover.SET_TILT_UP,
+            "arrow_left_hold": Cover.SET_TILT_CLOSE,
+            "arrow_right_hold": Cover.SET_TILT_OPEN,
         }

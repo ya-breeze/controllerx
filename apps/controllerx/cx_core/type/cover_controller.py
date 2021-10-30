@@ -1,3 +1,4 @@
+import time
 from typing import Callable, Optional, Type
 
 from cx_const import Cover, PredefinedActionsMapping
@@ -30,10 +31,17 @@ class CoverController(TypeController[Entity]):
     is_supposedly_moving: bool = False
     stop_timer_handle: Optional[str] = None
 
+    update_timeout: int
+    tilt_delta: int
+    tilt_position = 0
+    tilt_timestamp = 0.0
+
     async def init(self) -> None:
         self.open_position = self.args.get("open_position", 100)
         self.close_position = self.args.get("close_position", 0)
         self.cover_duration = self.args.get("cover_duration")
+        self.update_timeout = self.args.get("update_timeout", 0)
+        self.tilt_delta = self.args.get("tilt_delta", 10)
         if self.open_position < self.close_position:
             raise ValueError("`open_position` must be higher than `close_position`")
         await super().init()
@@ -48,6 +56,10 @@ class CoverController(TypeController[Entity]):
             Cover.STOP: self.stop,
             Cover.TOGGLE_OPEN: (self.toggle, (self.open,)),
             Cover.TOGGLE_CLOSE: (self.toggle, (self.close,)),
+            Cover.SET_TILT_UP: (self.set_tilt, (+self.tilt_delta,)),
+            Cover.SET_TILT_DOWN: (self.set_tilt, (-self.tilt_delta,)),
+            Cover.SET_TILT_OPEN: (self.set_tilt, (+100,)),
+            Cover.SET_TILT_CLOSE: (self.set_tilt, (-100,)),
         }
 
     async def cover_stopped_cb(self, kwargs):
@@ -76,8 +88,10 @@ class CoverController(TypeController[Entity]):
                 entity_id=self.entity.name,
                 position=self.open_position,
             )
+            self.tilt_position = self.open_position
         elif await self.feature_support.is_supported(CoverSupport.OPEN):
             await self.call_service("cover/open_cover", entity_id=self.entity.name)
+            self.tilt_position = self.open_position
         else:
             self.log(
                 f"⚠️ `{self.entity}` does not support SET_COVER_POSITION or OPEN",
@@ -95,8 +109,10 @@ class CoverController(TypeController[Entity]):
                 entity_id=self.entity.name,
                 position=self.close_position,
             )
+            self.tilt_position = self.close_position
         elif await self.feature_support.is_supported(CoverSupport.CLOSE):
             await self.call_service("cover/close_cover", entity_id=self.entity.name)
+            self.tilt_position = self.close_position
         else:
             self.log(
                 f"⚠️ `{self.entity}` does not support SET_COVER_POSITION or CLOSE",
@@ -122,3 +138,37 @@ class CoverController(TypeController[Entity]):
             await self.stop()
         else:
             await action()
+
+    @action
+    async def set_tilt(self, delta: int) -> None:
+        now = time.time()
+        if now >= self.update_timeout + self.tilt_timestamp:
+            self.tilt_position = await self.get_entity_state(
+                attribute="current_tilt_position"
+            )
+            self.log(
+                f"Extra: `{self.entity}` has tilt {self.tilt_position}",
+                level="DEBUG",
+                ascii_encode=False,
+            )
+            self.tilt_timestamp = now
+        else:
+            self.log(
+                f"Extra: `Cached tilt for {self.entity}` will be updated in {round(self.update_timeout + self.tilt_timestamp - now)}sec",
+                level="INFO",
+                ascii_encode=False,
+            )
+
+        self.tilt_position = max(0, min(100, self.tilt_position + delta))
+        if await self.feature_support.is_supported(CoverSupport.SET_TILT_POSITION):
+            await self.call_service(
+                "cover/set_cover_tilt_position",
+                entity_id=self.entity.name,
+                tilt_position=self.tilt_position,
+            )
+        else:
+            self.log(
+                f"⚠️ `{self.entity}` does not support SET_TILT_POSITION",
+                level="WARNING",
+                ascii_encode=False,
+            )

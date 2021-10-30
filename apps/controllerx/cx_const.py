@@ -98,6 +98,10 @@ class Cover:
     STOP = "stop"
     TOGGLE_OPEN = "toggle_open"
     TOGGLE_CLOSE = "toggle_close"
+    SET_TILT_UP = "set_tilt_up"
+    SET_TILT_DOWN = "set_tilt_down"
+    SET_TILT_OPEN = "set_tilt_open"
+    SET_TILT_CLOSE = "set_tilt_close"
 
 
 class StepperDir:
